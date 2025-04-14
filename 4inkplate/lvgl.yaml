@@ -1,0 +1,328 @@
+color:
+  - id: paper_black # Really black, but will appear white on e-paper
+    hex: "000000"
+  - id: paper_white # Really white, but will appear black on e-paper
+    hex: "FFFFFF"
+  - id: paper_gray
+    hex: "808080"
+image:
+  - file: mdi:alert-outline
+    id: alert
+    type: grayscale
+    transparency: alpha_channel
+    resize: 80x80
+
+
+lvgl:
+  #title: "Esempio E-Ink LVGL"
+  displays: 
+    - inkplate_display
+  touchscreens: 
+    - inktouch
+  bg_color: paper_white
+  style_definitions:
+    - id: header_footer
+      bg_color: paper_white
+      bg_grad_color: 0
+      bg_grad_dir: NONE
+      bg_opa: COVER
+      border_opa: TRANSP
+      radius: 0
+      pad_all: 0
+      pad_row: 0
+      pad_column: 0
+      border_color: 0
+      text_color: paper_black
+      width: 100%
+      height: 60
+      #bpp: 4
+      text_font: montserrat_20
+    - id: date_style      # choose an ID for your definition
+      text_font: montserrat_20
+      align: center
+      text_color: paper_black
+      bg_opa: cover
+      radius: 4
+      pad_all: 2
+      #bpp: 4
+      #text_font: montserrat_20
+
+  top_layer:
+    widgets:
+      - buttonmatrix:
+          align: bottom_mid
+          styles: header_footer
+          pad_all: 0
+          outline_width: 0
+          id: top_layer
+          #height: 100
+          items:
+            styles: header_footer
+          rows:
+            - buttons:
+              - id: page_prev
+                text: "\uF053"
+                on_press:
+                  then:
+                    lvgl.page.previous:
+              - id: page_home
+                text: "\uF015"
+                on_press:
+                  then:
+                    lvgl.page.show: clock_page
+              - id: page_next
+                text: "\uF054"
+                on_press:
+                  then:
+                    lvgl.page.next:
+
+      - label:
+          text: "\uF1EB"
+          id: lbl_hastatus
+          hidden: true
+          align: top_right
+          x: -2
+          y: 7
+          text_align: right
+          text_color: paper_white
+          bg_color: paper_black
+  pages:
+
+
+    - id: clock_page
+      widgets:
+        - obj: # clock container
+            height: SIZE_CONTENT
+            width: 600
+            align: TOP_MID
+            pad_all: 0
+            border_width: 0
+            #bg_color: 0xFFFFFF
+            widgets:
+              - meter: # clock face
+                  height: 560
+                  width: 560
+                  align: TOP_MID
+                  bg_opa: TRANSP
+                  border_width: 0
+                  text_color: paper_black
+                  text_font: montserrat_20
+                  scales:
+                    - range_from: 0 # minutes scale
+                      range_to: 60
+                      angle_range: 360
+                      rotation: 270
+                      ticks:
+                        width: 1
+                        count: 61
+                        length: 10
+                        color: paper_black
+                      indicators:
+                        - line:
+                            id: minute_hand
+                            width: 3
+                            color: paper_black
+                            r_mod: -4
+                            value: 0
+                    - range_from: 1 # hours scale for labels
+                      range_to: 12
+                      angle_range: 330
+                      rotation: 300
+                      ticks:
+                        width: 1
+                        count: 12
+                        length: 1
+                        major:
+                          stride: 1
+                          width: 4
+                          length: 10
+                          color: paper_black
+                          label_gap: 12
+                    - range_from: 0 # hi-res hours scale for hand
+                      range_to: 720
+                      angle_range: 360
+                      rotation: 270
+                      ticks:
+                        count: 0
+                      indicators:
+                        - line:
+                            id: hour_hand
+                            width: 5
+                            color: paper_black
+                            r_mod: -30
+                            value: 0
+              - label:
+                  styles: date_style
+                  id: day_label
+                  #text_color: paper_black
+                  #text_font: roboto_24
+                  y: -30
+              - label:
+                  id: date_label
+                  styles: date_style
+                  #text_color: paper_black
+                  #text_font: roboto_24
+                  y: 30
+#  pages:
+    - id: my_page
+      widgets:
+        - slider:
+            id: dimmer_slider
+            bg_color: paper_gray
+            outline_width: 1
+            x: 10
+            y: 10
+            width: 400
+            height: 30
+            pad_all: 8
+            styles: header_footer
+            min_value: 0
+            max_value: 100
+            on_release:
+              - light.turn_on:
+                  id: backlight
+                  brightness: !lambda return x/100.0;
+                
+            on_value:
+              - logger.log:
+                  format: "Slider value is: %.0f"
+                  args: [ 'x' ]
+        - label:
+            text_color: paper_black
+            text_font: montserrat_20
+            align: RIGHT_MID
+            text: 'RIGHT'
+        - label:
+            text_color: paper_black
+            text_font: montserrat_20
+            align: LEFT_MID
+            text: 'LEFT'
+        - button:
+            id: my_button
+            x: 10
+            y: 150
+            width: 300
+            height: 80
+            outline_width: 1
+            styles: header_footer
+            widgets:
+              - label:
+                  id: btLabel
+                  text_color: paper_black
+                  text_font: montserrat_20
+                  align: center
+                  text: "Clickme"
+            on_click:
+              - lvgl.label.update:
+                  id: btLabel
+                  text_color: paper_black
+                  text_font: montserrat_20
+                  text: "Clicked!"
+        - switch:
+            x: 10
+            y: 450
+            id: light_switch
+            on_click:
+              light.toggle: backlight
+    - id: inkplate_page
+      widgets:
+        - obj:
+            align: TOP_MID
+            styles: header_footer
+            widgets:
+              - label:
+                  text: "INKPLATE PAGE"
+                  text_font: montserrat_20
+                  align: CENTER
+                  text_align: CENTER
+                  text_color: paper_black
+        - textarea:
+            id: sinkplate_text
+            x: 5
+            y: 50
+            height: 500
+            width: 180
+            text: 'Inkplate sensors'
+            styles: header_footer
+            text_font: montserrat_22
+        - textarea:
+            id: sinkplate_data
+            x: 165
+            y: 50
+            height: 500
+            width: 115
+            text: 'Inkplate sensors Data'
+            styles: header_footer
+            text_font: montserrat_22
+
+                  
+    - id: fourth_page
+      widgets:
+        - obj:
+            align: TOP_MID
+            styles: header_footer
+            widgets:
+              - label:
+                  text: "fourth page"
+                  text_font: montserrat_20
+                  align: CENTER
+                  text_align: CENTER
+                  text_color: paper_black
+# Avvio della pagina all'accensione
+
+
+
+
+script:
+  - id: time_update
+    then:
+      - lvgl.indicator.update:
+          id: minute_hand
+          value: !lambda |-
+            return id(esptime).now().minute;
+      - lvgl.indicator.update:
+          id: hour_hand
+          value: !lambda |-
+            auto now = id(esptime).now();
+            return std::fmod(now.hour, 12) * 60 + now.minute;
+      - lvgl.label.update:
+          id: date_label
+          text: !lambda |-
+            static const char * const mon_names[] = {"Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"};
+            static char date_buf[15];
+            auto now = id(esptime).now();
+            snprintf(date_buf, sizeof(date_buf), "%s", mon_names[now.month-1]); //, now.day_of_month);
+            return date_buf;
+      - lvgl.label.update:
+          id: day_label
+          text: !lambda |-
+            auto now = id(esptime).now();
+            static char day_buf[15];
+            static const char * const day_names[] = {"DOM", "LUN", "MAR", "MER", "GIO", "VEN", "SAB"};
+            snprintf(day_buf, sizeof(day_buf), "%s %2d", day_names[id(esptime).now().day_of_week - 1], now.day_of_month);
+            return day_buf;
+  - id: sensors_update
+    then:
+      - lvgl.textarea.update:
+          id: sinkplate_text
+          text: !lambda |-
+            static char buf[128];
+            snprintf(buf,	sizeof(buf), "Temperature\nHumidity\nVOC\nCO2\nPressure\nIAQ\nBattery\nBattery\nCharge rate\nCapacity");
+            return buf;
+      - lvgl.textarea.update:
+          id: sinkplate_data
+          text: !lambda |-
+            static char buf[256];
+            snprintf(buf,	sizeof(buf), "%0.1f C°\n%0.0f %%\n%0.1f\n%0.0f ppm\n%2.0f MPa\n%0.0f ppm\n%0.1f V\n%0.0f mAh\n%0.0f %%\n%0.0f mA\n",
+            id(temperature).state,
+            id(humidity).state,
+            id(breath_voc_equivalent).state,
+            id(co2_equivalent).state,
+            id(pressure).state,
+            id(iaq).state,
+            id(voltage).state,
+            id(current).state,
+            id(chargests).state,
+            id(remCapac).state * 1000);
+            return buf;
+

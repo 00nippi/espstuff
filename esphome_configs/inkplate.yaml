@@ -1,0 +1,390 @@
+# Example configuration entry
+
+
+packages:
+  wifi: !include 4inkplate/wifi.yaml
+  lvgl: !include 4inkplate/lvgl.yaml
+
+esphome:
+  name: inkplate
+  #includes:
+  #- BQ27441.h
+  #libraries:
+  #- Wire
+  #- "SparkFun BQ27441 LiPo Fuel Gauge Arduino Library"
+
+
+
+esp32:
+  board: esp-wrover-kit
+
+
+
+logger:
+
+
+external_components:
+  # use all components from a local folder
+  - source:
+      type: local
+      path: ..\\components
+  
+
+captive_portal:
+
+web_server:
+  port: 80
+  include_internal: true
+
+ota:
+  platform: esphome
+
+api:
+  on_client_connected:
+    - if:
+        condition:
+          lambda: 'return (0 == client_info.find("Home Assistant "));'
+        then:
+          - lvgl.widget.show: lbl_hastatus
+  on_client_disconnected:
+    - if:
+        condition:
+          lambda: 'return (0 == client_info.find("Home Assistant "));'
+        then:
+          - lvgl.widget.hide: lbl_hastatus
+
+switch:
+  - platform: restart
+    name: "Inkplate Reboot"
+    id: reboot
+
+  - platform: gpio
+    name: 'Inkplate Touchscreen Enabled'
+    restore_mode: ALWAYS_ON
+    pin:
+      pca6416a: pca6416a_hub2
+      number: 0
+      inverted: true
+
+  - platform: gpio
+    name: "GPOUT_FG"
+    pin:
+      pca6416a: pca6416a_hub
+      number: 15
+      mode:
+        input: true
+        pullup: true
+      inverted: false
+
+  - platform: template
+    name: "Inkplate Greyscale mode"
+    lambda: return id(inkplate_display).get_greyscale();
+    turn_on_action:
+      - lambda: id(inkplate_display).set_greyscale(true);
+    turn_off_action:
+      - lambda: id(inkplate_display).set_greyscale(false);
+
+  - platform: template
+    name: "Inkplate Partial Updating"
+    restore_mode: ALWAYS_ON
+    lambda: return id(inkplate_display).get_partial_updating();
+    turn_on_action:
+      - lambda: id(inkplate_display).set_partial_updating(true);
+    turn_off_action:
+      - lambda: id(inkplate_display).set_partial_updating(false);
+
+
+  - platform: gpio
+    id: auto_mosfet
+    pin:
+      pca6416a: pca6416a_hub
+      number: 9
+
+sensor:
+  - platform: wifi_signal
+    name: "Inkplate WiFi Signal"
+    update_interval: 60s
+
+  - platform: bme68x_bsec2
+    #update_interval: 15s
+    temperature:
+      name: "BME688 Temperature"
+      id: temperature
+    pressure:
+      name: "BME688 Pressure"
+      id: pressure
+    humidity:
+      name: "BME688 Humidity"
+      id: humidity
+    iaq:
+      name: "BME688 IAQ"
+      id: iaq
+    co2_equivalent:
+      name: "BME688 CO2 Equivalent"
+      id: co2_equivalent
+    breath_voc_equivalent:
+      name: "BME688 Breath VOC Equivalent"
+      id: breath_voc_equivalent
+  
+  
+  - platform: bq27441
+    update_interval: 15s
+    i2c_id: bus_a
+    voltage:
+      name: "BQ27441 Voltage"
+      id: voltage
+    current:
+      name: "BQ27441 Current"
+      id: current
+    state_of_charge:
+      name: "BQ27441 State of Charge"
+      id: chargests
+    temperature:
+      name: "BQ27441 Temperature"
+      id: battTemp
+    remaining_capacity:
+      name: "BQ27441 Remaining Capacity"
+      id: remCapac
+
+
+  - platform: apds9960
+    type: CLEAR
+    name: "Clear Channel"
+  - platform: apds9960
+    type: RED
+    name: "Red Channel"
+  - platform: apds9960
+    type: GREEN
+    name: "Green Channel"
+  - platform: apds9960
+    type: BLUE
+    name: "Blue Channel"
+  - platform: apds9960
+    type: PROXIMITY
+    name: "Prox Channel"
+
+  - platform: adc
+    id: battery_voltage
+    update_interval: never
+    attenuation: 12db
+    pin: 35
+
+  - platform: template
+    name: "Inkplate Battery Voltage"
+    unit_of_measurement: "V"
+    accuracy_decimals: 3
+    lambda: |-
+      // Enable MOSFET to connect battery voltage divider
+      id(auto_mosfet).turn_on();
+      // Wait for voltage to stabilize
+      delay(5);
+      // Sample ADC value
+      float adc = id(battery_voltage).sample();
+      // Disable MOSFET to save power
+      id(auto_mosfet).turn_off();
+      return adc;
+    filters:
+      - multiply: 2 # Compensate for voltage divider (1:2 ratio)
+
+
+
+binary_sensor:
+  - platform: status
+    name: "Inkplate Status"
+    id: system_status
+
+
+  - platform: apds9960
+    direction: UP
+    name: "Up Movement"
+  - platform: apds9960
+    direction: DOWN
+    name: "Down Movement"
+  - platform: apds9960
+    direction: LEFT
+    name: "Left Movement"
+  - platform: apds9960
+    direction: RIGHT
+    name: "Right Movement"
+  # Repeat for each direction
+
+i2c:
+  sda: 21
+  scl: 22
+  #scan: true
+  frequency: 400kHz
+  id: bus_a
+
+pca6416a:
+  - id: pca6416a_hub
+    address: 0x20
+    # Primary expander for display control and additional I/O
+  - id: pca6416a_hub2
+    address: 0x21
+    # Secondary expander for additional I/O
+
+bme68x_bsec2_i2c:
+  address: 0x76
+  model: bme680
+  operating_age: 28d
+  sample_rate: LP
+  supply_voltage: 3.3V
+
+
+
+#bq27441:
+  #name: juice
+  
+
+apds9960:
+  address: 0x39
+  update_interval: 60s
+
+
+touchscreen:
+  - platform: ektf2232
+    id: inktouch
+    interrupt_pin: GPIO36
+    rts_pin:
+      pca6416a: pca6416a_hub2
+      number: 1
+    on_touch:
+      - logger.log:
+          format: "touch x=%d, y=%d"
+          args: ['touch.x', 'touch.y']
+          #then:
+      #- if:
+      #    condition: 
+      #      lambda: 'return id(inkplate_display).get_partial_updating();'
+      #    then:
+      #      - delay: 300ms
+      #      - component.update: inkplate_display
+      #    else:
+      #      #wait lvgl page update
+      - delay: 400ms
+      - component.update: inkplate_display
+
+
+power_supply:
+  - id: backlight_power
+    keep_on_time: 0.2s
+    enable_time: 0s
+    pin:
+      pca6416a: pca6416a_hub
+      number: 10
+
+output:
+  - platform: mcp47a1
+    id: backlight_brightness_output
+    power_supply: backlight_power
+
+light:
+  - platform: monochromatic
+    output: backlight_brightness_output
+    id: backlight
+    default_transition_length: 0.2s
+    name: 'Screen Backlight'
+    on_state:
+      - lvgl.widget.update:
+          id: light_switch
+          state:
+            checked: !lambda return id(backlight).current_values.is_on();
+
+
+
+
+
+display:
+- platform: inkplate4
+  id: inkplate_display
+  #greyscale: true
+  partial_updating: true
+  model: inkplate_4
+  #rotation: 90
+  
+  auto_clear_enabled: false
+  update_interval: never
+
+  ckv_pin: 32
+  sph_pin: 33
+  gmod_pin:
+    pca6416a: pca6416a_hub
+    number: 1
+  gpio0_enable_pin:
+    pca6416a: pca6416a_hub
+    number: 8
+  oe_pin:
+    pca6416a: pca6416a_hub
+    number: 0
+  spv_pin:
+    pca6416a: pca6416a_hub
+    number: 2
+  powerup_pin:
+    pca6416a: pca6416a_hub
+    number: 4
+  wakeup_pin:
+    pca6416a: pca6416a_hub
+    number: 3
+  vcom_pin:
+    pca6416a: pca6416a_hub
+    number: 5
+
+
+
+
+
+time:
+  - platform: sntp
+    id: esptimesntp
+    on_time_sync:
+      then:
+        # ... and update the RTC when the synchronization was successful
+        pcf85063.write_time:
+
+  - platform: pcf85063
+    id: esptime
+    # repeated synchronization is not necessary unless the external RTC
+    # is much more accurate than the internal clock
+    #update_interval: 10s
+    on_time:
+      - minutes: '*'
+        seconds: 0
+        then:
+          - if:
+              condition:
+                lvgl.page.is_showing: clock_page
+              then:
+                - script.execute: time_update
+                - logger.log: "Clock page is showing"
+                - delay: 300ms
+                - component.update: inkplate_display
+      - minutes: '*'
+        seconds: 0,15,30,45
+        then:
+          - if:
+              condition:
+                lvgl.page.is_showing: inkplate_page
+              then:
+                
+                - script.execute: sensors_update
+                - delay: 300ms
+                - component.update: inkplate_display
+
+  - platform: homeassistant
+    # instead try to synchronize via network repeatedly ...
+    on_time_sync:
+      then:
+        # ... and update the RTC when the synchronization was successful
+        pcf85063.write_time:
+
+
+font:
+  - file: ".\\fonts\\Roboto-Light.ttf"
+    id: roboto_48
+    size: 48
+  - file: ".\\fonts\\Roboto-Light.ttf"
+    id: roboto_24
+    size: 24
+  - file: ".\\fonts\\Roboto-Light.ttf"
+    id: roboto_96
+    size: 96
